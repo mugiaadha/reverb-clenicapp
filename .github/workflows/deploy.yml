@@ -1,0 +1,60 @@
+name: Deploy to VPS
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+jobs:
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v3
+              with:
+                  node-version: "18"
+
+            - name: Install dependencies and build assets
+              run: |
+                  npm ci
+                  npm run build
+
+            - name: Start SSH agent
+              uses: webfactory/ssh-agent@v0.8.1
+              with:
+                  ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+            - name: Add VPS to known_hosts
+              run: |
+                  mkdir -p ~/.ssh
+                  ssh-keyscan -p "${{ secrets.VPS_PORT }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+            - name: Rsync project to VPS
+              env:
+                  RSYNC_RSH: "ssh -p ${{ secrets.VPS_PORT }} -o StrictHostKeyChecking=no"
+              run: |
+                  rsync -avz --delete \
+                    --exclude '.git' \
+                    --exclude 'node_modules' \
+                    --exclude 'vendor' \
+                    --exclude '.env' \
+                    --exclude 'storage/*.key' \
+                    --exclude 'storage/app/private' \
+                    --exclude 'storage/framework' \
+                    --exclude 'storage/logs' \
+                    --exclude 'tests' \
+                    ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"
+
+            - name: Run remote composer & artisan tasks
+              run: |
+                  ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+                    "cd '${{ secrets.VPS_PATH }}' && \
+                     composer install --no-dev --optimize-autoloader --no-interaction || true && \
+                     php artisan migrate --force || true && \
+                     php artisan config:cache || true && \
+                     php artisan route:cache || true && \
+                     php artisan view:cache || true && \
+                     php artisan queue:restart || true"
