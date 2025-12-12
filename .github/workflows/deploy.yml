@@ -60,8 +60,8 @@ jobs:
             - name: Run remote composer & artisan tasks
               run: |
                   ssh -i ~/.ssh/deploy_key -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-                    "cd '${{ secrets.VPS_PATH }}' && \
-                     composer install --no-dev --optimize-autoloader --no-interaction || true && \
+                     "cd '${{ secrets.VPS_PATH }}' && \
+                     composer install --no-dev --optimize-autoloader --no-interaction && \
                      php artisan migrate --force || true && \
                      php artisan config:cache || true && \
                      php artisan route:cache || true && \
