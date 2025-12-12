@@ -32,11 +32,9 @@ jobs:
                     echo "SSH_PRIVATE_KEY secret is empty" >&2
                     exit 1
                   fi
-                  printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+                  # write private key to file and secure it
+                  printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
                   chmod 600 ~/.ssh/deploy_key
-                  # start ssh-agent and add key
-                  eval "$(ssh-agent -s)"
-                  ssh-add ~/.ssh/deploy_key
 
             - name: Add VPS to known_hosts
               run: |
@@ -45,7 +43,7 @@ jobs:
 
             - name: Rsync project to VPS
               env:
-                  RSYNC_RSH: "ssh -p ${{ secrets.VPS_PORT }} -o StrictHostKeyChecking=no"
+                  RSYNC_RSH: "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT }} -o StrictHostKeyChecking=no"
               run: |
                   rsync -avz --delete \
                     --exclude '.git' \
@@ -61,7 +59,7 @@ jobs:
 
             - name: Run remote composer & artisan tasks
               run: |
-                  ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+                  ssh -i ~/.ssh/deploy_key -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
                     "cd '${{ secrets.VPS_PATH }}' && \
                      composer install --no-dev --optimize-autoloader --no-interaction || true && \
                      php artisan migrate --force || true && \
