@@ -22,6 +22,17 @@ jobs:
                   npm ci
                   npm run build
 
+            - name: Setup PHP and Composer (for CI build)
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: "8.2"
+                  extensions: mbstring,xml,zip,curl,pdo_mysql
+                  tools: composer:v2
+
+            - name: Install PHP dependencies (composer)
+              run: |
+                  composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
             - name: Setup SSH key (use runner ssh-agent)
               shell: bash
               run: |
@@ -46,16 +57,16 @@ jobs:
                   RSYNC_RSH: "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT }} -o StrictHostKeyChecking=no"
               run: |
                   rsync -avz --delete \
-                    --exclude '.git' \
-                    --exclude 'node_modules' \
-                    --exclude 'vendor' \
-                    --exclude '.env' \
-                    --exclude 'storage/*.key' \
-                    --exclude 'storage/app/private' \
-                    --exclude 'storage/framework' \
-                    --exclude 'storage/logs' \
-                    --exclude 'tests' \
-                    ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"
+                  --exclude '.git' \
+                  --exclude 'node_modules' \
+                  # vendor is built in CI and should be deployed
+                  --exclude '.env' \
+                  --exclude 'storage/*.key' \
+                  --exclude 'storage/app/private' \
+                  --exclude 'storage/framework' \
+                  --exclude 'storage/logs' \
+                  --exclude 'tests' \
+                  ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"
 
             - name: Run remote composer & artisan tasks
               run: |
