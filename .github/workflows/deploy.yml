@@ -50,7 +50,17 @@ jobs:
             - name: Add VPS to known_hosts
               run: |
                   mkdir -p ~/.ssh
-                  ssh-keyscan -p "${{ secrets.VPS_PORT }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+                  # ensure VPS_HOST is set
+                  if [ -z "${{ secrets.VPS_HOST }}" ]; then
+                    echo "VPS_HOST secret is empty" >&2
+                    exit 1
+                  fi
+                  # If VPS_PORT is empty or 22, use default (no -p). If non-empty, include -p.
+                  if [ -z "${{ secrets.VPS_PORT }}" ] || [ "${{ secrets.VPS_PORT }}" = "22" ]; then
+                    ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts || echo "ssh-keyscan failed (host unreachable), continuing"
+                  else
+                    ssh-keyscan -p "${{ secrets.VPS_PORT }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts || echo "ssh-keyscan failed (host unreachable), continuing"
+                  fi
 
             - name: Rsync project to VPS
               env:
