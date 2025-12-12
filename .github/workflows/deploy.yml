@@ -63,20 +63,32 @@ jobs:
                   fi
 
             - name: Rsync project to VPS
-              env:
-                  RSYNC_RSH: "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT }} -o StrictHostKeyChecking=no"
               run: |
+                  set -euo pipefail
+                  # validate required secrets
+                  if [ -z "${{ secrets.VPS_USER }}" ] || [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_PATH }}" ]; then
+                    echo "One or more of VPS_USER / VPS_HOST / VPS_PATH secrets is empty" >&2
+                    echo "Please set these repository secrets in Settings -> Secrets" >&2
+                    exit 1
+                  fi
+                  # build RSYNC_RSH depending on port
+                  if [ -z "${{ secrets.VPS_PORT }}" ] || [ "${{ secrets.VPS_PORT }}" = "22" ]; then
+                    export RSYNC_RSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+                  else
+                    export RSYNC_RSH="ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT }} -o StrictHostKeyChecking=no"
+                  fi
+                  DEST="${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"
+                  echo "Deploy destination: $DEST"
                   rsync -avz --delete \
-                  --exclude '.git' \
-                  --exclude 'node_modules' \
-                  # vendor is built in CI and should be deployed
-                  --exclude '.env' \
-                  --exclude 'storage/*.key' \
-                  --exclude 'storage/app/private' \
-                  --exclude 'storage/framework' \
-                  --exclude 'storage/logs' \
-                  --exclude 'tests' \
-                  ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"
+                    --exclude '.git' \
+                    --exclude 'node_modules' \
+                    --exclude '.env' \
+                    --exclude 'storage/*.key' \
+                    --exclude 'storage/app/private' \
+                    --exclude 'storage/framework' \
+                    --exclude 'storage/logs' \
+                    --exclude 'tests' \
+                    ./ "$DEST"
 
             - name: Run remote artisan tasks
               run: |
