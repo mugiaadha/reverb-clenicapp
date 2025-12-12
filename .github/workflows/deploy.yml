@@ -22,10 +22,21 @@ jobs:
                   npm ci
                   npm run build
 
-            - name: Start SSH agent
-              uses: webfactory/ssh-agent@v0.8.1
-              with:
-                  ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            - name: Setup SSH key (use runner ssh-agent)
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  mkdir -p ~/.ssh
+                  echo "Setting up SSH key from secret"
+                  if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+                    echo "SSH_PRIVATE_KEY secret is empty" >&2
+                    exit 1
+                  fi
+                  printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+                  chmod 600 ~/.ssh/deploy_key
+                  # start ssh-agent and add key
+                  eval "$(ssh-agent -s)"
+                  ssh-add ~/.ssh/deploy_key
 
             - name: Add VPS to known_hosts
               run: |
