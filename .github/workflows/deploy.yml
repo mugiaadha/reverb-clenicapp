@@ -56,7 +56,7 @@ jobs:
       # ---------- RSYNC ----------
       - name: Rsync to VPS
         run: |
-          rsync -az --delete \
+          rsync -avz --delete \
             --exclude=.git \
             --exclude=node_modules \
             --exclude=.env \
