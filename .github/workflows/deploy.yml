@@ -1,9 +1,9 @@
 name: Deploy to VPS (simple)
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   deploy:
@@ -16,10 +16,10 @@ jobs:
       VPS_PORT: ${{ secrets.VPS_PORT }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- Frontend build ----------
+      # ---------- FRONTEND BUILD ----------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -30,17 +30,18 @@ jobs:
           npm ci
           npm run build
 
-      # ---------- Backend ----------
+      # ---------- BACKEND ----------
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.2
           tools: composer:v2
 
-      - name: Install composer dependencies
+      - name: Composer install
         run: |
           composer install \
             --no-dev \
+            --prefer-dist \
             --optimize-autoloader \
             --no-interaction
 
@@ -48,25 +49,33 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p ${VPS_PORT:-22} $VPS_HOST >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${VPS_PORT:-22} -H $VPS_HOST >> ~/.ssh/known_hosts
 
-      # ---------- Deploy ----------
-      - name: Sync files to VPS
+      # ---------- RSYNC ----------
+      - name: Rsync to VPS
         run: |
           rsync -az --delete \
-            --exclude .git \
-            --exclude node_modules \
-            --exclude .env \
-            -e "ssh -p ${VPS_PORT:-22}" \
-            ./ ${VPS_USER}@${VPS_HOST}:${VPS_PATH}
+            --exclude=.git \
+            --exclude=node_modules \
+            --exclude=.env \
+            -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22}" \
+            ./ $VPS_USER@$VPS_HOST:$VPS_PATH
 
-      # ---------- Post deploy ----------
-      - name: Run artisan commands
+      # ---------- FIX PERMISSION + ARTISAN ----------
+      - name: Fix permission & run artisan
         run: |
-          ssh -p ${VPS_PORT:-22} ${VPS_USER}@${VPS_HOST} << EOF
+          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} \
+          $VPS_USER@$VPS_HOST << 'EOF'
+            set -e
             cd ${VPS_PATH}
+
+            echo "Fixing permission..."
+            sudo chown -R www-data:www-data storage bootstrap/cache
+            sudo chmod -R 775 storage bootstrap/cache
+
+            echo "Running artisan..."
             php artisan migrate --force || true
             php artisan config:clear
             php artisan cache:clear
