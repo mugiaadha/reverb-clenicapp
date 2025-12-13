@@ -1,12 +1,12 @@
-name: Deploy to VPS
+name: Deploy to VPS (simple)
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     env:
       VPS_USER: ${{ secrets.VPS_USER }}
@@ -15,7 +15,7 @@ jobs:
       VPS_PORT: ${{ secrets.VPS_PORT }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -23,78 +23,58 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Node dependencies and build assets
+      - name: Build assets
         shell: bash
         run: |
           set -euo pipefail
-          name: Deploy to VPS (simple)
+          npm ci
+          NODE_ENV=production npm run build
 
-          on:
-            workflow_dispatch:
-            push:
-              branches: [main]
+      - name: Setup PHP (composer)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer:v2
 
-          jobs:
-            deploy:
-              runs-on: ubuntu-latest
-              env:
-                VPS_USER: ${{ secrets.VPS_USER }}
-                VPS_HOST: ${{ secrets.VPS_HOST }}
-                VPS_PATH: ${{ secrets.VPS_PATH }}
-                VPS_PORT: ${{ secrets.VPS_PORT }}
+      - name: Composer install
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-              steps:
-                - name: Checkout
-                  uses: actions/checkout@v4
+      - name: Setup SSH key and known_hosts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          if [ -n "${{ env.VPS_HOST }}" ]; then
+            if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
+              ssh-keyscan -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || true
+            else
+              ssh-keyscan -p "${{ env.VPS_PORT }}" -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || true
+            fi
+          fi
 
-                - name: Build assets (Node 20)
-                  uses: actions/setup-node@v3
-                  with:
-                    node-version: "20"
-                  run: |
-                    npm ci
-                    NODE_ENV=production npm run build
+      - name: Rsync to server
+        shell: bash
+        run: |
+          set -euo pipefail
+          RSYNC_SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
+          if [ -n "${{ env.VPS_PORT }}" ] && [ "${{ env.VPS_PORT }}" != "22" ]; then
+            RSYNC_SSH="$RSYNC_SSH -p ${{ env.VPS_PORT }}"
+          fi
+          export RSYNC_RSH="$RSYNC_SSH"
+          DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
+          rsync -az --delete --exclude='.git' --exclude='node_modules' --exclude='.env' ./ "$DEST"
 
-                - name: Install PHP deps (Composer)
-                  uses: shivammathur/setup-php@v2
-                  with:
-                    php-version: "8.2"
-                    tools: composer:v2
-                  run: |
-                    composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-                - name: Setup SSH key
-                  shell: bash
-                  run: |
-                    mkdir -p ~/.ssh
-                    printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/deploy_key"
-                    chmod 600 "$HOME/.ssh/deploy_key"
-                    if [ -n "${{ env.VPS_HOST }}" ]; then
-                      if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-                        ssh-keyscan -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || true
-                      else
-                        ssh-keyscan -p "${{ env.VPS_PORT }}" -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || true
-                      fi
-                    fi
-
-                - name: Rsync to server
-                  shell: bash
-                  run: |
-                    set -euo pipefail
-                    RSYNC_SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
-                    if [ -n "${{ env.VPS_PORT }}" ] && [ "${{ env.VPS_PORT }}" != "22" ]; then
-                      RSYNC_SSH="$RSYNC_SSH -p ${{ env.VPS_PORT }}"
-                    fi
-                    export RSYNC_RSH="$RSYNC_SSH"
-                    DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
-                    rsync -az --delete --exclude='.git' --exclude='node_modules' --exclude='.env' ./ "$DEST"
-
-                - name: Run remote artisan
-                  shell: bash
-                  run: |
-                    SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
-                    if [ -n "${{ env.VPS_PORT }}" ] && [ "${{ env.VPS_PORT }}" != "22" ]; then
-                      SSH="$SSH -p ${{ env.VPS_PORT }}"
-                    fi
-                    $SSH "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" "cd '${{ env.VPS_PATH }}' && php artisan migrate --force || true; php artisan config:cache || true"
-            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+      - name: Run remote artisan
+        shell: bash
+        run: |
+          set -euo pipefail
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
+          if [ -n "${{ env.VPS_PORT }}" ] && [ "${{ env.VPS_PORT }}" != "22" ]; then
+            SSH="$SSH -p ${{ env.VPS_PORT }}"
+          fi
+          $SSH "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" "cd '${{ env.VPS_PATH }}' && php artisan migrate --force || true; php artisan config:cache || true"
