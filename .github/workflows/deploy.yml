@@ -86,3 +86,12 @@ jobs:
             php artisan config:cache
             php artisan view:clear
           "
+      - name: Debug permissions
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST "
+            cd $VPS_PATH
+            whoami
+            ls -lah storage/framework
+            ls -lah storage/framework/views
+            ls -lah bootstrap/cache
+          "
