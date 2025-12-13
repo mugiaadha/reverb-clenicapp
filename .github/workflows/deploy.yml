@@ -19,16 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- FRONTEND BUILD ----------
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Build assets
-        run: |
-          npm ci
-          npm run build
+      # Frontend build will run on the VPS after files are rsynced
 
       # ---------- BACKEND ----------
       - name: Setup PHP
@@ -62,6 +53,19 @@ jobs:
             --exclude=.env \
             -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22}" \
             ./ $VPS_USER@$VPS_HOST:$VPS_PATH
+
+      - name: Remote npm build (on VPS)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST "bash -lc '
+            set -e
+            cd $VPS_PATH
+            if command -v npm >/dev/null 2>&1; then
+              npm ci
+              npm run build
+            else
+              echo "npm not found on server; skipping frontend build"
+            fi
+          '"]
 
       # ---------- FIX PERMISSION + ARTISAN ----------
       - name: Fix permission & artisan
