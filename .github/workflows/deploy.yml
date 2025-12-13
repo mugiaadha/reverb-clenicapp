@@ -56,16 +56,16 @@ jobs:
 
       - name: Remote npm build (on VPS)
         run: |
-          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST "bash -lc '
-            set -e
-            cd $VPS_PATH
-            if command -v npm >/dev/null 2>&1; then
-              npm ci
-              npm run build
-            else
-              echo "npm not found on server; skipping frontend build"
-            fi
-          '"]
+          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST <<'REMOTE'
+          set -e
+          cd "$VPS_PATH"
+          if command -v npm >/dev/null 2>&1; then
+            npm ci
+            npm run build
+          else
+            echo "npm not found on server; skipping frontend build"
+          fi
+          REMOTE
 
       # ---------- FIX PERMISSION + ARTISAN ----------
       - name: Fix permission & artisan
