@@ -66,34 +66,30 @@ jobs:
       # ---------- FIX PERMISSION + ARTISAN ----------
       - name: Fix permission & artisan
         run: |
-          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST "
-            set -e
-            cd $VPS_PATH
+          ssh -i ~/.ssh/deploy_key -p $VPS_PORT $VPS_USER@$VPS_HOST "
+          set -e
+          cd $VPS_PATH
 
-            # pastikan semua folder ada
-            mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache
+          # pastikan semua folder storage & bootstrap/cache ada
+          mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache database
 
-            # ownership aman: user deploy + group www-data
-            sudo chown -R $VPS_USER:www-data storage bootstrap/cache
+          # fix ownership semua folder Laravel
+          sudo chown -R $VPS_USER:www-data storage bootstrap/cache database
 
-            # permission 775 → owner & group bisa write
-            sudo chown -R $VPS_USER:www-data storage bootstrap/cache
-            sudo chmod -R 775 storage bootstrap/cache
-            sudo chmod -R 775 storage/framework/views
+          # fix permission → owner & group bisa write
+          sudo chmod -R 775 storage bootstrap/cache database
 
-            # migrate + clear cache
-            php artisan migrate --force || true
-            php artisan config:clear
-            php artisan cache:clear
-            php artisan config:cache
-            php artisan view:clear
-          "
-      - name: Debug permissions
-        run: |
-          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST "
-            cd $VPS_PATH
-            whoami
-            ls -lah storage/framework
-            ls -lah storage/framework/views
-            ls -lah bootstrap/cache
-          "
+          # hapus file log lama (optional, biar artisan bisa write)
+          rm -f storage/logs/*.log
+
+          # kalau pakai SQLite, pastikan file ada & writable
+          touch database/database.sqlite
+          sudo chown $VPS_USER:www-data database/database.sqlite
+          sudo chmod 664 database/database.sqlite
+
+          # clear cache & migrate
+          php artisan migrate --force || true
+          php artisan config:clear
+          php artisan cache:clear
+          php artisan config:cache
+          php artisan view:clear"
