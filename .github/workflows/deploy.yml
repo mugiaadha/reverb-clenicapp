@@ -64,19 +64,38 @@ jobs:
             ./ $VPS_USER@$VPS_HOST:$VPS_PATH
 
       # ---------- FIX PERMISSION + ARTISAN ----------
-      - name: Fix permission & run artisan
+      - name: Fix permission & artisan
         run: |
           ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} \
           $VPS_USER@$VPS_HOST << 'EOF'
             set -e
             cd ${VPS_PATH}
 
-            echo "Fixing permission..."
+            if [ ! -f artisan ]; then
+              echo "artisan not found"
+              exit 1
+            fi
+
+            echo "Ensure folders exist..."
+            mkdir -p storage/framework/{cache,sessions,views}
+            mkdir -p bootstrap/cache
+
+            echo "Fix permission..."
             sudo chown -R www-data:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
 
-            echo "Running artisan..."
+            echo "Laravel artisan..."
+            php artisan key:generate --force || true
+            php artisan storage:link || true
+
             php artisan migrate --force || true
+
             php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
             php artisan cache:clear
+
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
           EOF
