@@ -61,7 +61,14 @@ jobs:
           set -e
           cd "$VPS_PATH"
           if command -v npm >/dev/null 2>&1; then
-            npm ci
+            # Prefer clean, reproducible installs when a lockfile exists
+            if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+              echo "Found lockfile -> running 'npm ci'"
+              npm ci
+            else
+              echo "No lockfile found -> running 'npm install' (this will generate a lockfile)"
+              npm install
+            fi
             npm run build
           else
             echo "npm not found on server; skipping frontend build"
