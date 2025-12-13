@@ -67,10 +67,11 @@ jobs:
       - name: Fix permission & artisan
         run: |
           ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} \
-          $VPS_USER@$VPS_HOST << 'EOF'
+          $VPS_USER@$VPS_HOST << EOF
             set -e
+
+            echo "Current dir before cd:"
             pwd
-            ls -lah
 
             cd ${VPS_PATH}
 
@@ -79,4 +80,15 @@ jobs:
             ls -lah
 
             php artisan --version
+
+            mkdir -p storage/framework/{cache,sessions,views}
+            mkdir -p bootstrap/cache
+
+            sudo chown -R www-data:www-data storage bootstrap/cache
+            sudo chmod -R 775 storage bootstrap/cache
+
+            php artisan migrate --force || true
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan config:cache
           EOF
