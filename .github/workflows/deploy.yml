@@ -81,7 +81,6 @@ jobs:
             sudo chmod -R 775 storage bootstrap/cache
             sudo chmod -R 775 storage/framework/views
 
-
             # migrate + clear cache
             php artisan migrate --force || true
             php artisan config:clear
