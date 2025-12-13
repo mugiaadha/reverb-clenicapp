@@ -1,13 +1,14 @@
 name: Deploy to VPS (simple)
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     env:
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -15,66 +16,54 @@ jobs:
       VPS_PORT: ${{ secrets.VPS_PORT }}
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- Build frontend ---
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
 
       - name: Build assets
-        shell: bash
         run: |
-          set -euo pipefail
           npm ci
-          NODE_ENV=production npm run build
+          npm run build
 
-      - name: Setup PHP (composer)
+      # --- Backend ---
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: 8.2
           tools: composer:v2
 
-      - name: Composer install
-        shell: bash
-        run: |
-          set -euo pipefail
-          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+      - name: Install dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
 
-      - name: Setup SSH key and known_hosts
-        shell: bash
+      # --- SSH ---
+      - name: Setup SSH
         run: |
-          set -euo pipefail
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/deploy_key"
-          chmod 600 "$HOME/.ssh/deploy_key"
-          if [ -n "${{ env.VPS_HOST }}" ]; then
-            if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-              ssh-keyscan -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || true
-            else
-              ssh-keyscan -p "${{ env.VPS_PORT }}" -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || true
-            fi
-          fi
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${VPS_PORT:-22} $VPS_HOST >> ~/.ssh/known_hosts
 
-      - name: Rsync to server
-        shell: bash
+      # --- Deploy ---
+      - name: Sync files to VPS
         run: |
-          set -euo pipefail
-          RSYNC_SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
-          if [ -n "${{ env.VPS_PORT }}" ] && [ "${{ env.VPS_PORT }}" != "22" ]; then
-            RSYNC_SSH="$RSYNC_SSH -p ${{ env.VPS_PORT }}"
-          fi
-          export RSYNC_RSH="$RSYNC_SSH"
-          DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
-          rsync -az --delete --exclude='.git' --exclude='node_modules' --exclude='.env' ./ "$DEST"
+          rsync -az --delete \
+            --exclude .git \
+            --exclude node_modules \
+            --exclude .env \
+            -e "ssh -p ${VPS_PORT:-22}" \
+            ./ ${VPS_USER}@${VPS_HOST}:${VPS_PATH}
 
-      - name: Run remote artisan
-        shell: bash
+      # --- Post deploy ---
+      - name: Run artisan commands
         run: |
-          set -euo pipefail
-          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
-          if [ -n "${{ env.VPS_PORT }}" ] && [ "${{ env.VPS_PORT }}" != "22" ]; then
-            SSH="$SSH -p ${{ env.VPS_PORT }}"
-          fi
-          $SSH "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" "cd '${{ env.VPS_PATH }}' && php artisan migrate --force || true; php artisan config:cache || true"
+          ssh -p ${VPS_PORT:-22} ${VPS_USER}@${VPS_HOST} << 'EOF'
+            cd ${VPS_PATH}
+            php artisan migrate --force || true
+            php artisan config:clear
+            php artisan cache:clear
+          EOF
