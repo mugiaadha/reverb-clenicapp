@@ -8,6 +8,13 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PATH: ${{ secrets.VPS_PATH }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      DEPLOY_KEY_PATH: ~/.ssh/deploy_key
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,10 +24,24 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies and build assets
+      - name: Install Node dependencies and build assets
+        shell: bash
         run: |
+          set -euo pipefail
           npm ci
-          npm run build
+          NODE_ENV=production npm run build
+
+      - name: Verify Vite build output
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_MANIFEST=public/build/manifest.json
+          if [ ! -f "$BUILD_MANIFEST" ]; then
+            echo "Vite build artifacts not found: $BUILD_MANIFEST" >&2
+            ls -la public || true
+            exit 1
+          fi
+          echo "Vite build manifest found:" && ls -la $BUILD_MANIFEST
 
       - name: Setup PHP and Composer (for CI build)
         uses: shivammathur/setup-php@v2
@@ -30,10 +51,12 @@ jobs:
           tools: composer:v2
 
       - name: Install PHP dependencies (composer)
+        shell: bash
         run: |
+          set -euo pipefail
           composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-      - name: Setup SSH key (use runner ssh-agent)
+      - name: Setup SSH key
         shell: bash
         run: |
           set -euo pipefail
@@ -43,120 +66,58 @@ jobs:
             echo "SSH_PRIVATE_KEY secret is empty" >&2
             exit 1
           fi
-          # write private key to file and secure it
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "${{ env.DEPLOY_KEY_PATH }}"
+          chmod 600 "${{ env.DEPLOY_KEY_PATH }}"
 
       - name: Add VPS to known_hosts
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          # ensure VPS_HOST is set
-          if [ -z "${{ secrets.VPS_HOST }}" ]; then
-            name: Deploy to VPS
+          if [ -z "${{ env.VPS_HOST }}" ]; then
+            echo "VPS_HOST secret is empty" >&2
+            exit 1
+          fi
+          if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
+            ssh-keyscan -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || echo "ssh-keyscan failed (host unreachable), continuing"
+          else
+            ssh-keyscan -p "${{ env.VPS_PORT }}" -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || echo "ssh-keyscan failed (host unreachable), continuing"
+          fi
 
-            on:
-              push:
-                branches: [main]
-              workflow_dispatch:
+      - name: Rsync project to VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ env.VPS_USER }}" ] || [ -z "${{ env.VPS_HOST }}" ] || [ -z "${{ env.VPS_PATH }}" ]; then
+            echo "VPS_USER / VPS_HOST / VPS_PATH must be set in secrets" >&2
+            exit 1
+          fi
+          if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
+            RSYNC_RSH="ssh -i ${DEPLOY_KEY_PATH} -o StrictHostKeyChecking=no"
+          else
+            RSYNC_RSH="ssh -i ${DEPLOY_KEY_PATH} -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+          fi
+          export RSYNC_RSH
+          DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
+          echo "Deploy destination: $DEST"
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            --exclude 'storage/*.key' \
+            --exclude 'storage/app/private' \
+            --exclude 'storage/framework' \
+            --exclude 'storage/logs' \
+            --exclude 'tests' \
+            ./ "$DEST"
 
-            jobs:
-              build-and-deploy:
-                runs-on: ubuntu-latest
-                # expose commonly-used secrets as job env vars for readability in steps
-                env:
-                  VPS_USER: ${{ secrets.VPS_USER }}
-                  VPS_HOST: ${{ secrets.VPS_HOST }}
-                  VPS_PATH: ${{ secrets.VPS_PATH }}
-                  VPS_PORT: ${{ secrets.VPS_PORT }}
-                  DEPLOY_KEY_PATH: ~/.ssh/deploy_key
-
-                steps:
-                  - name: Checkout repository
-                    uses: actions/checkout@v4
-
-                  - name: Setup Node
-                    uses: actions/setup-node@v3
-                    with:
-                      node-version: '20'
-
-                  - name: Install Node dependencies and build assets
-                    run: |
-                      npm ci
-                      npm run build
-
-                  - name: Setup PHP and Composer (for CI build)
-                    uses: shivammathur/setup-php@v2
-                    with:
-                      php-version: '8.2'
-                      extensions: mbstring,xml,zip,curl,pdo_mysql
-                      tools: composer:v2
-
-                  - name: Install PHP dependencies (composer)
-                    run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-                  - name: Setup SSH key
-                    shell: bash
-                    run: |
-                      set -euo pipefail
-                      mkdir -p ~/.ssh
-                      echo "Setting up SSH key from secret"
-                      if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-                        echo "SSH_PRIVATE_KEY secret is empty" >&2
-                        exit 1
-                      fi
-                      # write private key to file and secure it
-                      printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "${{ env.DEPLOY_KEY_PATH }}"
-                      chmod 600 "${{ env.DEPLOY_KEY_PATH }}"
-
-                  - name: Add VPS to known_hosts
-                    shell: bash
-                    run: |
-                      set -euo pipefail
-                      mkdir -p ~/.ssh
-                      if [ -z "${{ env.VPS_HOST }}" ]; then
-                        echo "VPS_HOST secret is empty" >&2
-                        exit 1
-                      fi
-                      if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-                        ssh-keyscan -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || echo "ssh-keyscan failed (host unreachable), continuing"
-                      else
-                        ssh-keyscan -p "${{ env.VPS_PORT }}" -H "${{ env.VPS_HOST }}" >> ~/.ssh/known_hosts || echo "ssh-keyscan failed (host unreachable), continuing"
-                      fi
-
-                  - name: Rsync project to VPS
-                    shell: bash
-                    run: |
-                      set -euo pipefail
-                      if [ -z "${{ env.VPS_USER }}" ] || [ -z "${{ env.VPS_HOST }}" ] || [ -z "${{ env.VPS_PATH }}" ]; then
-                        echo "VPS_USER / VPS_HOST / VPS_PATH must be set in secrets" >&2
-                        exit 1
-                      fi
-                      if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-                        RSYNC_RSH="ssh -i ${DEPLOY_KEY_PATH} -o StrictHostKeyChecking=no"
-                      else
-                        RSYNC_RSH="ssh -i ${DEPLOY_KEY_PATH} -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
-                      fi
-                      export RSYNC_RSH
-                      DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
-                      echo "Deploy destination: $DEST"
-                      rsync -avz --delete \
-                        --exclude '.git' \
-                        --exclude 'node_modules' \
-                        --exclude '.env' \
-                        --exclude 'storage/*.key' \
-                        --exclude 'storage/app/private' \
-                        --exclude 'storage/framework' \
-                        --exclude 'storage/logs' \
-                        --exclude 'tests' \
-                        ./ "$DEST"
-
-                  - name: Run remote artisan tasks
-                    shell: bash
-                    run: |
-                      set -euo pipefail
-                      if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-                        SSH_CMD="ssh -i ${DEPLOY_KEY_PATH} -o StrictHostKeyChecking=no"
-                      else
-                        SSH_CMD="ssh -i ${DEPLOY_KEY_PATH} -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
-                      fi
-                      $SSH_CMD "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" "cd '${{ env.VPS_PATH }}' && php artisan migrate --force || true; php artisan config:cache || true; php artisan route:cache || true; php artisan view:cache || true; php artisan queue:restart || true"
+      - name: Run remote artisan tasks
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
+            SSH_CMD="ssh -i ${DEPLOY_KEY_PATH} -o StrictHostKeyChecking=no"
+          else
+            SSH_CMD="ssh -i ${DEPLOY_KEY_PATH} -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+          fi
+          $SSH_CMD "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" "cd '${{ env.VPS_PATH }}' && php artisan migrate --force || true; php artisan config:cache || true; php artisan route:cache || true; php artisan view:cache || true; php artisan queue:restart || true"
