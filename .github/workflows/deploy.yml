@@ -110,6 +110,31 @@ jobs:
             --exclude 'tests' \
             ./ "$DEST"
 
+      - name: Fix permissions on server
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
+          else
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+          fi
+
+          # Attempt to fix ownership and permissions for common web user (www-data)
+          $SSH_CMD "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" \
+            "cd '${{ env.VPS_PATH }}' && \
+             if sudo -n true 2>/dev/null; then \
+               echo 'Running sudo chown/chmod for www-data'; \
+               sudo chown -R www-data:www-data storage bootstrap/cache database || true; \
+               sudo chmod -R ug+rwX storage bootstrap/cache || true; \
+               [ -f database/database.sqlite ] && sudo chmod 664 database/database.sqlite || true; \
+             else \
+               echo 'WARNING: cannot run sudo non-interactively. Please run on the server:'; \
+               echo "  sudo chown -R www-data:www-data '${{ env.VPS_PATH }}'/storage '${{ env.VPS_PATH }}'/bootstrap/cache '${{ env.VPS_PATH }}'/database"; \
+               echo "  sudo chmod -R ug+rwX '${{ env.VPS_PATH }}'/storage '${{ env.VPS_PATH }}'/bootstrap/cache"; \
+               echo "  sudo chmod 664 '${{ env.VPS_PATH }}'/database/database.sqlite (if using sqlite)"; \
+             fi"
+
       - name: Run remote artisan tasks
         shell: bash
         run: |
