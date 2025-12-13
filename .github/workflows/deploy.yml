@@ -92,9 +92,9 @@ jobs:
             exit 1
           fi
           if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-            RSYNC_RSH="ssh -i $HOME/.ssh/authorized_keys -o StrictHostKeyChecking=no"
+            RSYNC_RSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
           else
-            RSYNC_RSH="ssh -i $HOME/.ssh/authorized_keys -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+            RSYNC_RSH="ssh -i $HOME/.ssh/deploy_key -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
           fi
           export RSYNC_RSH
           DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
