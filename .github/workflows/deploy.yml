@@ -66,30 +66,23 @@ jobs:
       # ---------- FIX PERMISSION + ARTISAN ----------
       - name: Fix permission & artisan
         run: |
-          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} \
-          $VPS_USER@$VPS_HOST << EOF
+          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST "
             set -e
+            cd $VPS_PATH
 
-            echo "Current dir before cd:"
-            pwd
+            # pastikan semua folder ada
+            mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache
 
-            cd ${VPS_PATH}
-
-            echo "After cd:"
-            pwd
-            ls -lah
-
-            php artisan --version
-
-            mkdir -p storage/framework/{cache,sessions,views}
-            mkdir -p bootstrap/cache
-
+            # ownership aman: user deploy + group www-data
             sudo chown -R $VPS_USER:www-data storage bootstrap/cache
+
+            # permission 775 → owner & group bisa write
             sudo chmod -R 775 storage bootstrap/cache
 
+            # migrate + clear cache
             php artisan migrate --force || true
             php artisan config:clear
             php artisan cache:clear
             php artisan config:cache
             php artisan view:clear
-          EOF
+          "
