@@ -13,7 +13,6 @@ jobs:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_PATH: ${{ secrets.VPS_PATH }}
       VPS_PORT: ${{ secrets.VPS_PORT }}
-      DEPLOY_KEY_PATH: ~/.ssh/deploy_key
 
     steps:
       - name: Checkout repository
@@ -66,8 +65,8 @@ jobs:
             echo "SSH_PRIVATE_KEY secret is empty" >&2
             exit 1
           fi
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "${{ env.DEPLOY_KEY_PATH }}"
-          chmod 600 "${{ env.DEPLOY_KEY_PATH }}"
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
 
       - name: Add VPS to known_hosts
         shell: bash
@@ -93,9 +92,9 @@ jobs:
             exit 1
           fi
           if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-            RSYNC_RSH="ssh -i ${DEPLOY_KEY_PATH} -o StrictHostKeyChecking=no"
+            RSYNC_RSH="ssh -i $HOME/.ssh/authorized_keys -o StrictHostKeyChecking=no"
           else
-            RSYNC_RSH="ssh -i ${DEPLOY_KEY_PATH} -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+            RSYNC_RSH="ssh -i $HOME/.ssh/authorized_keys -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
           fi
           export RSYNC_RSH
           DEST="${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.VPS_PATH }}"
@@ -116,8 +115,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${{ env.VPS_PORT }}" ] || [ "${{ env.VPS_PORT }}" = "22" ]; then
-            SSH_CMD="ssh -i ${DEPLOY_KEY_PATH} -o StrictHostKeyChecking=no"
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=no"
           else
-            SSH_CMD="ssh -i ${DEPLOY_KEY_PATH} -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
+            SSH_CMD="ssh -i $HOME/.ssh/deploy_key -p ${{ env.VPS_PORT }} -o StrictHostKeyChecking=no"
           fi
           $SSH_CMD "${{ env.VPS_USER }}@${{ env.VPS_HOST }}" "cd '${{ env.VPS_PATH }}' && php artisan migrate --force || true; php artisan config:cache || true; php artisan route:cache || true; php artisan view:cache || true; php artisan queue:restart || true"
