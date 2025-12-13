@@ -69,6 +69,8 @@ jobs:
           set -e
           cd $VPS_PATH
 
+          npm run build
+
           # pastikan semua folder storage & bootstrap/cache ada
           mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache database
 
@@ -92,4 +94,3 @@ jobs:
           php artisan cache:clear
           php artisan config:cache
           php artisan view:clear"
-          npm run build
