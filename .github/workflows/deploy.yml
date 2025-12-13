@@ -19,7 +19,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Frontend build will run on the VPS after files are rsynced
+      # ---------- FRONTEND BUILD ----------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build assets
+        run: |
+          npm ci
+          npm run build
 
       # ---------- BACKEND ----------
       - name: Setup PHP
@@ -47,70 +56,40 @@ jobs:
       # ---------- RSYNC ----------
       - name: Rsync to VPS
         run: |
-          # run rsync with verbose output and progress so logs show transferred files
-          rsync -avz --progress --stats --delete \
-          --exclude=.git \
-          --exclude=node_modules \
-          --exclude=.env \
-          -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22}" \
-          ./ $VPS_USER@$VPS_HOST:$VPS_PATH
-
-      - name: Remote npm build (on VPS)
-        run: |
-          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST <<'REMOTE'
-          set -e
-          cd "$VPS_PATH"
-          if command -v npm >/dev/null 2>&1; then
-            # Prefer clean, reproducible installs when a lockfile exists
-            if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-              echo "Found lockfile -> running 'npm ci'"
-              npm ci
-            else
-              echo "No lockfile found -> running 'npm install' (this will generate a lockfile)"
-              npm install
-            fi
-            npm run build
-          else
-            echo "npm not found on server; skipping frontend build"
-          fi
-          REMOTE
+          rsync -az --delete \
+            --exclude=.git \
+            --exclude=node_modules \
+            --exclude=.env \
+            -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22}" \
+            ./ $VPS_USER@$VPS_HOST:$VPS_PATH
 
       # ---------- FIX PERMISSION + ARTISAN ----------
       - name: Fix permission & artisan
         run: |
-          ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} $VPS_USER@$VPS_HOST <<'REMOTE'
+          ssh -i ~/.ssh/deploy_key -p $VPS_PORT $VPS_USER@$VPS_HOST "
           set -e
-          cd "$VPS_PATH"
+          cd $VPS_PATH
 
-          # ensure storage & bootstrap/cache directories exist
+          # pastikan semua folder storage & bootstrap/cache ada
           mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache database
 
-          # fix ownership for web user (use sudo only if available)
-          if command -v sudo >/dev/null 2>&1; then
-            sudo chown -R $VPS_USER:www-data storage bootstrap/cache database || true
-            sudo chmod -R 775 storage bootstrap/cache database || true
-          else
-            chown -R $VPS_USER:www-data storage bootstrap/cache database || true
-            chmod -R 775 storage bootstrap/cache database || true
-          fi
+          # fix ownership semua folder Laravel
+          sudo chown -R $VPS_USER:www-data storage bootstrap/cache database
 
-          # remove old logs
-          rm -f storage/logs/*.log || true
+          # fix permission → owner & group bisa write
+          sudo chmod -R 775 storage bootstrap/cache database
 
-          # ensure sqlite file exists and is writable (if used)
-          touch database/database.sqlite || true
-          if command -v sudo >/dev/null 2>&1; then
-            sudo chown $VPS_USER:www-data database/database.sqlite || true
-            sudo chmod 664 database/database.sqlite || true
-          else
-            chown $VPS_USER:www-data database/database.sqlite || true
-            chmod 664 database/database.sqlite || true
-          fi
+          # hapus file log lama (optional, biar artisan bisa write)
+          rm -f storage/logs/*.log
 
-          # run migrations and clear caches
+          # kalau pakai SQLite, pastikan file ada & writable
+          touch database/database.sqlite
+          sudo chown $VPS_USER:www-data database/database.sqlite
+          sudo chmod 664 database/database.sqlite
+
+          # clear cache & migrate
           php artisan migrate --force || true
-          php artisan config:clear || true
-          php artisan cache:clear || true
-          php artisan config:cache || true
-          php artisan view:clear || true
-          REMOTE
+          php artisan config:clear
+          php artisan cache:clear
+          php artisan config:cache
+          php artisan view:clear"
