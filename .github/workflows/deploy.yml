@@ -84,11 +84,12 @@ jobs:
             mkdir -p storage/framework/{cache,sessions,views}
             mkdir -p bootstrap/cache
 
-            sudo chown -R www-data:www-data storage bootstrap/cache
+            sudo chown -R $VPS_USER:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
 
             php artisan migrate --force || true
             php artisan config:clear
             php artisan cache:clear
             php artisan config:cache
+            php artisan view:clear
           EOF
