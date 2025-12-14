@@ -9,3 +9,5 @@ Route::get('/messages', function (Request $request) {
 });
 
 Route::post('/chat/send', [\App\Http\Controllers\ChatController::class, 'send']);
+// API to trigger queue call (broadcasts via Reverb)
+Route::post('/queue/call', [\App\Http\Controllers\QueueController::class, 'call']);

@@ -1,0 +1,97 @@
+{
+    "info": {
+        "_postman_id": "d6f2a6c2-queue-2025-12-14",
+        "name": "Socket Reverb - API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "description": "Collection for testing Socket Reverb app (queue display + chat)"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://127.0.0.1:8000",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Queue: Call",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"prefix\": \"A\",\n  \"number\": 37,\n  \"loket\": 5\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/queue/call",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "queue", "call"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Chat: Send (API)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"user\": \"Postman User\",\n  \"message\": \"Hello from Postman\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/chat/send",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "chat", "send"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Messages: List",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/api/messages",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "messages"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Open Queue Display (UI)",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/queue",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["queue"]
+                }
+            },
+            "response": []
+        }
+    ]
+}
