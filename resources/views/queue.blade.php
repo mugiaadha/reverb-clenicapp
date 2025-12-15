@@ -12,34 +12,50 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
-    body {
-        background: #0d6efd;
-        color: #fff;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-    }
+        body {
+            background: #0d6efd;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+        }
 
-    .panel {
-        width: 100%;
-    }
+        .panel {
+            width: 100%;
+        }
 
-    .number {
-        font-size: 10vw;
-        font-weight: 700;
-    }
+        .number {
+            font-size: 10vw;
+            font-weight: 700;
+        }
 
-    .pasien {
-        font-size: 6vw;
-    }
+        .pasien {
+            font-size: 6vw;
+        }
 
-    .meta {
-        opacity: .9
-    }
+        .meta {
+            opacity: .9
+        }
     </style>
 </head>
 
 <body>
+    <!-- Fullscreen start overlay (blocks page until user starts the display) -->
+    <div id="enableOverlay" role="dialog" aria-modal="true"
+        style="position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:#fff;padding:28px;max-width:520px;">
+            <h2 style="font-size:1.9rem;margin-bottom:8px">Mulai Display Antrian</h2>
+            <p style="opacity:.92;margin-bottom:10px">Tekan tombol <strong>Mulai</strong> untuk menampilkan layar
+                antrian dan mengaktifkan suara.</p>
+            <p style="opacity:.75;font-size:.92rem;margin-bottom:18px">(Gesture ini diperlukan supaya pemutaran suara
+                dan media dapat berjalan di sebagian besar browser.)</p>
+            <button id="overlayEnableBtn" class="btn btn-lg btn-light text-dark" aria-label="Mulai"
+                style="padding:.55rem 1.4rem;box-shadow:0 10px 30px rgba(0,0,0,.45);">Mulai</button>
+            <div style="height:8px"></div>
+            <small style="opacity:.65;display:block;margin-top:10px">Tekan sekali saja — layar akan otomatis
+                mulai.</small>
+        </div>
+    </div>
     <div class="panel h-100">
         <div class="row g-0" style="height:100vh;">
 
@@ -91,37 +107,88 @@
 
     <!-- CONFIG UNTUK queue.js -->
     <script>
-    window.__queue_channel = '{{ $channel ?? "queue-display" }}';
+        window.__queue_channel = '{{ $channel ?? "queue-display" }}';
     </script>
 
     <script>
-    // If URL contains ?videoId=..., update the YouTube iframe to use that id.
-    (function() {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const vid = params.get('videoId') || params.get('videoid');
-            if (!vid) return;
-            const iframe = document.getElementById('display-youtube');
-            if (!iframe) return;
-            // Preserve autoplay/mute/loop params and set playlist to the selected id for loop
-            const q = new URLSearchParams({
-                autoplay: 1,
-                mute: 1,
-                loop: 1,
-                playlist: vid,
-                enablejsapi: 1
-            });
-            iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(vid)}?${q.toString()}`;
-        } catch (e) {
-            console.warn('apply videoId param failed', e);
-        }
-    })();
+        // If URL contains ?videoId=..., update the YouTube iframe to use that id.
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const vid = params.get('videoId') || params.get('videoid');
+                if (!vid) return;
+                const iframe = document.getElementById('display-youtube');
+                if (!iframe) return;
+                // Preserve autoplay/mute/loop params and set playlist to the selected id for loop
+                const q = new URLSearchParams({
+                    autoplay: 1,
+                    mute: 1,
+                    loop: 1,
+                    playlist: vid,
+                    enablejsapi: 1
+                });
+                iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(vid)}?${q.toString()}`;
+            } catch (e) {
+                console.warn('apply videoId param failed', e);
+            }
+        })();
     </script>
 
     @if (file_exists(public_path('build/manifest.json')))
     @vite('resources/js/app.js')
     @vite('resources/js/queue.js')
     @endif
+    <script>
+        // Overlay wiring: initialize audio on user gesture and hide overlay
+        (function() {
+            function fallbackInitAudio() {
+                try {
+                    if (!window.__audioCtx) window.__audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                    if (window.__audioCtx.state === 'suspended') window.__audioCtx.resume().catch(() => {});
+                    window.__audioInited = true;
+                } catch (e) {
+                    console.warn('fallbackInitAudio', e);
+                }
+            }
+
+            function enableAndClose() {
+                try {
+                    if (window.initAudio) window.initAudio();
+                    else fallbackInitAudio();
+                } catch (e) {
+                    fallbackInitAudio();
+                }
+                try {
+                    const s = document.getElementById('soundStatus');
+                    if (s) s.textContent = '(enabled)';
+                } catch (e) {}
+                try {
+                    const top = document.getElementById('enableSoundBtn');
+                    if (top) top.setAttribute('disabled', 'true');
+                } catch (e) {}
+                try {
+                    const ov = document.getElementById('enableOverlay');
+                    if (ov) ov.style.display = 'none';
+                } catch (e) {}
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                try {
+                    const overlay = document.getElementById('enableOverlay');
+                    const btn = document.getElementById('overlayEnableBtn');
+                    if (btn) btn.addEventListener('click', function(ev) {
+                        ev.preventDefault();
+                        enableAndClose();
+                    });
+                    if (overlay) overlay.addEventListener('click', function(ev) {
+                        if (ev.target === overlay) enableAndClose();
+                    });
+                } catch (e) {
+                    console.warn('overlay wiring failed', e);
+                }
+            });
+        })();
+    </script>
 </body>
 
 </html>
