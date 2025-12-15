@@ -8,7 +8,15 @@ function updateDisplay(prefix, number, pasien, poli) {
     } catch (e) { }
     try {
         const l = document.getElementById('pasien');
-        if (l) l.textContent = String(pasien || '').toUpperCase();
+        if (l) {
+            // display uppercase short label, but keep full name on title for tooltip
+            const fullName = String(pasien || '');
+            l.textContent = fullName.toUpperCase();
+            // set title so users can hover to see the full (untruncated) name
+            l.title = fullName;
+            // also set aria-label for accessibility
+            l.setAttribute('aria-label', fullName);
+        }
     } catch (e) { }
     try {
         const p = document.getElementById('poli');

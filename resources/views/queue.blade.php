@@ -34,7 +34,15 @@
         }
 
         .pasien {
-            font-size: 6vw;
+            font-size: 3vw;
+            /* Prevent long patient names from wrapping to the next line.
+               Use a single-line ellipsis so the display stays tidy. The
+               full name will be available via the element's title (tooltip). */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            max-width: 100%;
         }
 
         .meta {
