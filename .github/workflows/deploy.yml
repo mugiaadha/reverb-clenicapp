@@ -33,13 +33,10 @@ jobs:
           VITE_REVERB_SCHEME: ${{ secrets.VITE_REVERB_SCHEME }}
           VITE_REVERB_PATH: ${{ secrets.VITE_REVERB_PATH }}
         run: |
-          npm ci
-          npm run build
-
-      - name: Debug VITE env
-        run: |
           echo "KEY=$VITE_REVERB_APP_KEY"
           echo "HOST=$VITE_REVERB_HOST"
+          npm ci
+          npm run build
 
       # ---------- BACKEND ----------
       - name: Setup PHP
