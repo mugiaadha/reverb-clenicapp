@@ -1,5 +1,5 @@
 // Frontend queue listener (used when assets are built)
-function updateDisplay(prefix, number, pasien) {
+function updateDisplay(prefix, number, pasien, poli) {
     // show combined display like "A-31" in the large number element
     const combined = (prefix || 'A') + '-' + (number || 0);
     try {
@@ -9,6 +9,10 @@ function updateDisplay(prefix, number, pasien) {
     try {
         const l = document.getElementById('pasien');
         if (l) l.textContent = String(pasien || '').toUpperCase();
+    } catch (e) { }
+    try {
+        const p = document.getElementById('poli');
+        if (p) p.textContent = poli ? String(poli).toUpperCase() : '';
     } catch (e) { }
 }
 
@@ -32,9 +36,11 @@ function numberToWordsIndo(n) {
     return String(n);
 }
 
-function makeAnnouncement(prefix, number, pasien) {
+function makeAnnouncement(prefix, number, pasien, poli) {
     const numberWords = numberToWordsIndo(number);
-    return `Antrian ${prefix} ${numberWords}, untuk pasien ${pasien}`;
+    const poliPart = (poli && String(poli).trim()) ? `ke poli ${poli}` : '';
+    const poliPhrase = poliPart ? (`, ${poliPart}`) : '';
+    return `Antrian ${prefix} ${numberWords}${poliPhrase}, untuk pasien ${pasien}`;
 }
 
 // Fragment playback disabled — always use beep + TTS fallback.
@@ -207,12 +213,14 @@ async function onQueueCalled(e) {
     const prefix = (e.prefix ?? 'A');
     const number = (e.number ?? 0);
     const pasien = (e.pasien ?? '-');
+    const poli = (e.poli ?? '');
     // stronger dedupe: normalize values and ignore duplicates within window
     try {
         const normPasien = String(pasien).trim().toLowerCase();
         const normNumber = parseInt(number, 10) || 0;
         const normPrefix = String(prefix).trim().toLowerCase();
-        const fp = `${normPrefix}:${normNumber}:${normPasien}`;
+        const normPoli = String(poli).trim().toLowerCase();
+        const fp = `${normPrefix}:${normNumber}:${normPoli}:${normPasien}`;
         const now = Date.now();
         if (!window.__queue_event_last) window.__queue_event_last = { fp: null, at: 0 };
         const last = window.__queue_event_last;
@@ -232,8 +240,8 @@ async function onQueueCalled(e) {
     } catch (dedupErr) {
         console.warn('dedupe check failed', dedupErr);
     }
-    updateDisplay(prefix, number, pasien);
-    const ann = makeAnnouncement(prefix, number, pasien);
+    updateDisplay(prefix, number, pasien, poli);
+    const ann = makeAnnouncement(prefix, number, pasien, poli);
     updateDebug({ last: 'received event' });
     // Fragments removed: always use beep + TTS (ensure audio initialized)
     try {
@@ -253,7 +261,7 @@ async function onQueueCalled(e) {
             await sleep(SPEECH_DELAY_MS);
             // guard speaking to prevent duplicate TTS (extra safety)
             try {
-                const speakFp = `${String(prefix).trim().toLowerCase()}:${parseInt(number, 10) || 0}:${String(pasien).trim().toLowerCase()}`;
+                const speakFp = `${String(prefix).trim().toLowerCase()}:${parseInt(number, 10) || 0}:${String(poli).trim().toLowerCase()}:${String(pasien).trim().toLowerCase()}`;
                 const nowSpeak = Date.now();
                 if (!window.__queue_last_speak) window.__queue_last_speak = { fp: null, at: 0 };
                 const ls = window.__queue_last_speak;

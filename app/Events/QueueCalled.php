@@ -15,16 +15,18 @@ class QueueCalled implements ShouldBroadcastNow
     public string $prefix;
     public int $number;
     public string $pasien;
+    public ?string $poli;
     public ?string $channel;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(string $prefix, int $number, string $pasien, ?string $channel = null)
+    public function __construct(string $prefix, int $number, string $pasien, ?string $poli = null, ?string $channel = null)
     {
         $this->prefix = $prefix;
         $this->number = $number;
         $this->pasien = $pasien;
+        $this->poli = $poli;
         $this->channel = $channel;
     }
 
@@ -49,6 +51,7 @@ class QueueCalled implements ShouldBroadcastNow
             'prefix' => $this->prefix,
             'number' => $this->number,
             'pasien' => $this->pasien,
+            'poli' => $this->poli,
             'channel' => $this->channel,
         ];
     }

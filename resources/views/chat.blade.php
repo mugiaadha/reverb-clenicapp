@@ -11,6 +11,8 @@
     <style>
         body {
             padding-top: 2rem;
+            background: #fff;
+            color: #000;
         }
 
         #messages {
