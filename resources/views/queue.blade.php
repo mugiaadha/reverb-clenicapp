@@ -12,30 +12,30 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
-        body {
-            background: #0d6efd;
-            color: #fff;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-        }
+    body {
+        background: #0d6efd;
+        color: #fff;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+    }
 
-        .panel {
-            width: 100%;
-        }
+    .panel {
+        width: 100%;
+    }
 
-        .number {
-            font-size: 10vw;
-            font-weight: 700;
-        }
+    .number {
+        font-size: 10vw;
+        font-weight: 700;
+    }
 
-        .pasien {
-            font-size: 6vw;
-        }
+    .pasien {
+        font-size: 6vw;
+    }
 
-        .meta {
-            opacity: .9
-        }
+    .meta {
+        opacity: .9
+    }
     </style>
 </head>
 
@@ -91,7 +91,31 @@
 
     <!-- CONFIG UNTUK queue.js -->
     <script>
-        window.__queue_channel = '{{ $channel ?? "queue-display" }}';
+    window.__queue_channel = '{{ $channel ?? "queue-display" }}';
+    </script>
+
+    <script>
+    // If URL contains ?videoId=..., update the YouTube iframe to use that id.
+    (function() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const vid = params.get('videoId') || params.get('videoid');
+            if (!vid) return;
+            const iframe = document.getElementById('display-youtube');
+            if (!iframe) return;
+            // Preserve autoplay/mute/loop params and set playlist to the selected id for loop
+            const q = new URLSearchParams({
+                autoplay: 1,
+                mute: 1,
+                loop: 1,
+                playlist: vid,
+                enablejsapi: 1
+            });
+            iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(vid)}?${q.toString()}`;
+        } catch (e) {
+            console.warn('apply videoId param failed', e);
+        }
+    })();
     </script>
 
     @if (file_exists(public_path('build/manifest.json')))
