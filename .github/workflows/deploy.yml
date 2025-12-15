@@ -25,6 +25,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Debug VITE env
+        run: |
+          echo "KEY=$VITE_REVERB_APP_KEY"
+          echo "HOST=$VITE_REVERB_HOST"
+
       - name: Build assets
         env:
           VITE_REVERB_APP_KEY: ${{ secrets.VITE_REVERB_APP_KEY }}
