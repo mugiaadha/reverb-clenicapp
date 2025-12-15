@@ -26,6 +26,12 @@ jobs:
           node-version: 20
 
       - name: Build assets
+        env:
+          VITE_REVERB_APP_KEY: ${{ secrets.VITE_REVERB_APP_KEY }}
+          VITE_REVERB_HOST: ${{ secrets.VITE_REVERB_HOST }}
+          VITE_REVERB_PORT: ${{ secrets.VITE_REVERB_PORT }}
+          VITE_REVERB_SCHEME: ${{ secrets.VITE_REVERB_SCHEME }}
+          VITE_REVERB_PATH: ${{ secrets.VITE_REVERB_PATH }}
         run: |
           npm ci
           npm run build
