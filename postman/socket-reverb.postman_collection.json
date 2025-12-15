@@ -25,7 +25,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"prefix\": \"A\",\n  \"number\": 37,\n  \"loket\": 5\n}",
+                    "raw": "{\n  \"prefix\": \"A\",\n  \"number\": 37,\n  \"pasien\": \"Budi\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"

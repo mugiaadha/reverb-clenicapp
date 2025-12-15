@@ -19,17 +19,17 @@ class QueueController extends Controller
         $data = $request->validate([
             'prefix' => 'nullable|string|max:3',
             'number' => 'required|integer|min:0',
-            'loket' => 'required|integer|min:0',
+            'pasien' => 'required|string|max:255',
             'channel' => 'nullable|string|max:64',
         ]);
 
         $prefix = $data['prefix'] ?? 'A';
         $number = (int) $data['number'];
-        $loket = (int) $data['loket'];
+        $pasien = (string) $data['pasien'];
 
         // Dispatch broadcast event on optional channel
         $channel = $data['channel'] ?? null;
-        event(new QueueCalled($prefix, $number, $loket, $channel));
+        event(new QueueCalled($prefix, $number, $pasien, $channel));
 
         return response()->json(['ok' => true]);
     }
