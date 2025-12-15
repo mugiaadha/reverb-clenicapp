@@ -10,8 +10,7 @@
 
     <!-- Favicon: websocket logo SVG (preferred) and fallback to existing favicon.ico -->
     <!-- Add cache-busting query to force browsers to reload the updated icon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon-websocket.svg?v=2">
-    <link rel="alternate icon" href="/favicon.ico?v=2">
+    <link rel="alternate icon" href="/favicon.ico">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
