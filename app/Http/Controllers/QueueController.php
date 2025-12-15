@@ -20,7 +20,7 @@ class QueueController extends Controller
             'prefix' => 'nullable|string|max:3',
             'number' => 'required|integer|min:0',
             'pasien' => 'required|string|max:255',
-            'poli' => 'nullable|string|max:255',
+            'poli' => 'required|string|max:255',
             'channel' => 'nullable|string|max:64',
         ]);
 
