@@ -123,10 +123,8 @@ try {
 } catch (e) { }
 
 // Auto-initialize on first user click (covers most cases)
-import { addListener } from './utils/eventPassive';
 try {
-    // Use passive option when safe — onFirstClick doesn't call preventDefault
-    addListener(document, 'click', function onFirstClick() { try { initAudio(); } catch (e) { } }, { once: true, passive: true });
+    document.addEventListener('click', function onFirstClick() { try { initAudio(); } catch (e) { } }, { once: true });
 } catch (e) { }
 
 // Wire enable and test buttons when DOM is ready

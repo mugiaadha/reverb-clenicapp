@@ -16,47 +16,47 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
-        body {
-            background: #fff;
-            color: #000;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-        }
+    body {
+        background: #fff;
+        color: #000;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+    }
 
-        .panel {
-            width: 100%;
-        }
+    .panel {
+        width: 100%;
+    }
 
-        .number {
-            font-size: 10vw;
-            font-weight: 700;
-        }
+    .number {
+        font-size: 10vw;
+        font-weight: 700;
+    }
 
-        .pasien {
-            font-size: 3vw;
-            /* Prevent long patient names from wrapping to the next line.
+    .pasien {
+        font-size: 3vw;
+        /* Prevent long patient names from wrapping to the next line.
                Use a single-line ellipsis so the display stays tidy. The
                full name will be available via the element's title (tooltip). */
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-            max-width: 100%;
-        }
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        max-width: 100%;
+    }
 
-        .meta {
-            opacity: .9
-        }
+    .meta {
+        opacity: .9
+    }
 
-        /* Larger, bolder POLI label below the pasien name */
-        #poli {
-            font-size: 4.5vw;
-            font-weight: 700;
-            margin-top: .5rem;
-            letter-spacing: 0.02em;
-            opacity: 0.95;
-        }
+    /* Larger, bolder POLI label below the pasien name */
+    #poli {
+        font-size: 4.5vw;
+        font-weight: 700;
+        margin-top: .5rem;
+        letter-spacing: 0.02em;
+        opacity: 0.95;
+    }
     </style>
 </head>
 
@@ -118,9 +118,7 @@
             <!-- RIGHT : YOUTUBE -->
             <div id="colYoutube" class="col-12 col-md-6 d-flex align-items-center justify-content-center">
                 <iframe id="display-youtube"
-                    data-src="https://www.youtube.com/embed/Hbp6A8qcqAI?autoplay=1&mute=1&loop=1&playlist=Hbp6A8qcqAI"
-                    loading="lazy"
-                    title="Video display"
+                    src="https://www.youtube.com/embed/Hbp6A8qcqAI?autoplay=1&mute=1&loop=1&playlist=Hbp6A8qcqAI"
                     frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen
                     style="width:100%;height:100%;border:0;background:#000">
                 </iframe>
@@ -131,32 +129,31 @@
 
     <!-- CONFIG UNTUK queue.js -->
     <script>
-        window.__queue_channel = '{{ $channel ?? "queue-display" }}';
+    window.__queue_channel = '{{ $channel ?? "queue-display" }}';
     </script>
 
     <script>
-        // If URL contains ?videoId=..., update the YouTube iframe to use that id.
-        (function() {
-            try {
-                const params = new URLSearchParams(window.location.search);
-                const vid = params.get('videoId') || params.get('videoid');
-                if (!vid) return;
-                const iframe = document.getElementById('display-youtube');
-                if (!iframe) return;
-                // Preserve autoplay/mute/loop params and set playlist to the selected id for loop
-                const q = new URLSearchParams({
-                    autoplay: 1,
-                    mute: 1,
-                    loop: 1,
-                    playlist: vid,
-                    enablejsapi: 1
-                });
-                // Store the URL in data-src so iframe is only loaded on user gesture
-                iframe.dataset.src = `https://www.youtube.com/embed/${encodeURIComponent(vid)}?${q.toString()}`;
-            } catch (e) {
-                console.warn('apply videoId param failed', e);
-            }
-        })();
+    // If URL contains ?videoId=..., update the YouTube iframe to use that id.
+    (function() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const vid = params.get('videoId') || params.get('videoid');
+            if (!vid) return;
+            const iframe = document.getElementById('display-youtube');
+            if (!iframe) return;
+            // Preserve autoplay/mute/loop params and set playlist to the selected id for loop
+            const q = new URLSearchParams({
+                autoplay: 1,
+                mute: 1,
+                loop: 1,
+                playlist: vid,
+                enablejsapi: 1
+            });
+            iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(vid)}?${q.toString()}`;
+        } catch (e) {
+            console.warn('apply videoId param failed', e);
+        }
+    })();
     </script>
 
     @if (file_exists(public_path('build/manifest.json')))
@@ -164,65 +161,55 @@
     @vite('resources/js/queue.js')
     @endif
     <script>
-        // Overlay wiring: initialize audio on user gesture and hide overlay
-        (function() {
-            function fallbackInitAudio() {
-                try {
-                    if (!window.__audioCtx) window.__audioCtx = new(window.AudioContext || window.webkitAudioContext)();
-                    if (window.__audioCtx.state === 'suspended') window.__audioCtx.resume().catch(() => {});
-                    window.__audioInited = true;
-                } catch (e) {
-                    console.warn('fallbackInitAudio', e);
-                }
+    // Overlay wiring: initialize audio on user gesture and hide overlay
+    (function() {
+        function fallbackInitAudio() {
+            try {
+                if (!window.__audioCtx) window.__audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                if (window.__audioCtx.state === 'suspended') window.__audioCtx.resume().catch(() => {});
+                window.__audioInited = true;
+            } catch (e) {
+                console.warn('fallbackInitAudio', e);
             }
+        }
 
-            function enableAndClose() {
-                try {
-                    if (window.initAudio) window.initAudio();
-                    else fallbackInitAudio();
-                } catch (e) {
-                    fallbackInitAudio();
-                }
-                try {
-                    const s = document.getElementById('soundStatus');
-                    if (s) s.textContent = '(enabled)';
-                } catch (e) {}
-                try {
-                    const top = document.getElementById('enableSoundBtn');
-                    if (top) top.setAttribute('disabled', 'true');
-                } catch (e) {}
-                try {
-                    const ov = document.getElementById('enableOverlay');
-                    if (ov) ov.style.display = 'none';
-                } catch (e) {}
-                try {
-                    // Lazy-load YouTube iframe when the user has given a gesture
-                    const iframe = document.getElementById('display-youtube');
-                    if (iframe && iframe.dataset && iframe.dataset.src) {
-                        // assign src only now so the third-party player doesn't block initial load
-                        iframe.src = iframe.dataset.src;
-                    }
-                } catch (e) {
-                    console.warn('lazy-load iframe failed', e);
-                }
+        function enableAndClose() {
+            try {
+                if (window.initAudio) window.initAudio();
+                else fallbackInitAudio();
+            } catch (e) {
+                fallbackInitAudio();
             }
+            try {
+                const s = document.getElementById('soundStatus');
+                if (s) s.textContent = '(enabled)';
+            } catch (e) {}
+            try {
+                const top = document.getElementById('enableSoundBtn');
+                if (top) top.setAttribute('disabled', 'true');
+            } catch (e) {}
+            try {
+                const ov = document.getElementById('enableOverlay');
+                if (ov) ov.style.display = 'none';
+            } catch (e) {}
+        }
 
-            document.addEventListener('DOMContentLoaded', function() {
-                try {
-                    const overlay = document.getElementById('enableOverlay');
-                    const btn = document.getElementById('overlayEnableBtn');
-                    if (btn) btn.addEventListener('click', function(ev) {
-                        ev.preventDefault();
-                        enableAndClose();
-                    });
-                    if (overlay) overlay.addEventListener('click', function(ev) {
-                        if (ev.target === overlay) enableAndClose();
-                    });
-                } catch (e) {
-                    console.warn('overlay wiring failed', e);
-                }
-            });
-        })();
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const overlay = document.getElementById('enableOverlay');
+                const btn = document.getElementById('overlayEnableBtn');
+                if (btn) btn.addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    enableAndClose();
+                });
+                if (overlay) overlay.addEventListener('click', function(ev) {
+                    if (ev.target === overlay) enableAndClose();
+                });
+            } catch (e) {
+                console.warn('overlay wiring failed', e);
+            }
+        });
+    })();
     </script>
 </body>
 
