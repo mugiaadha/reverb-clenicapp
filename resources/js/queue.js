@@ -12,7 +12,7 @@ function updateDisplay(prefix, number, pasien, poli) {
     } catch (e) { }
     try {
         const p = document.getElementById('poli');
-        if (p) p.textContent = poli ? String(poli).toUpperCase() : '';
+        if (p) p.textContent = poli ? ('POLI ' + String(poli).toUpperCase()) : '';
     } catch (e) { }
 }
 
@@ -38,9 +38,9 @@ function numberToWordsIndo(n) {
 
 function makeAnnouncement(prefix, number, pasien, poli) {
     const numberWords = numberToWordsIndo(number);
-    const poliPart = (poli && String(poli).trim()) ? `ke poli ${poli}` : '';
-    const poliPhrase = poliPart ? (`, ${poliPart}`) : '';
-    return `Antrian ${prefix} ${numberWords}${poliPhrase}, untuk pasien ${pasien}`;
+    // Speak poli at the end of the announcement (after pasien)
+    const poliPart = (poli && String(poli).trim()) ? `, ke poli ${poli}` : '';
+    return `Antrian ${prefix} ${numberWords}, untuk pasien ${pasien}${poliPart}`;
 }
 
 // Fragment playback disabled — always use beep + TTS fallback.
@@ -204,7 +204,7 @@ function testSound() {
     try { initAudio(); } catch (e) { }
     playBeep(200, 880).then(ok => {
         if (ok) updateDebug({ last: 'beeped' });
-        const sample = 'Ini suara percobaan. Antrian A tiga puluh tujuh, untuk pasien Budi.';
+        const sample = 'Ini suara percobaan. Antrian A tiga puluh tujuh, untuk pasien Budi, ke poli Umum.';
         try { speak(sample); updateDebug({ last: 'spoken-sample' }); } catch (e) { updateDebug({ last: 'speak-error' }); }
     });
 }

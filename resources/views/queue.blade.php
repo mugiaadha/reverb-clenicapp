@@ -8,13 +8,18 @@
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    <!-- Favicon: websocket logo SVG (preferred) and fallback to existing favicon.ico -->
+    <!-- Add cache-busting query to force browsers to reload the updated icon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon-websocket.svg?v=2">
+    <link rel="alternate icon" href="/favicon.ico?v=2">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
         body {
-            background: #0d6efd;
-            color: #fff;
+            background: #fff;
+            color: #000;
             height: 100vh;
             display: flex;
             align-items: center;
@@ -35,6 +40,15 @@
 
         .meta {
             opacity: .9
+        }
+
+        /* Larger, bolder POLI label below the pasien name */
+        #poli {
+            font-size: 4.5vw;
+            font-weight: 700;
+            margin-top: .5rem;
+            letter-spacing: 0.02em;
+            opacity: 0.95;
         }
     </style>
 </head>
@@ -60,8 +74,8 @@
         <div class="row g-0" style="height:100vh;">
 
             <!-- LEFT : QUEUE -->
-            <div id="colAntrian" class="col-12 col-md-6 d-flex align-items-center justify-content-center bg-primary">
-                <div class="w-100 text-center text-white p-4">
+            <div id="colAntrian" class="col-12 col-md-6 d-flex align-items-center justify-content-center">
+                <div class="w-100 text-center text-black p-4">
 
                     <div class="meta mb-3">
                         Puskesmas - Layar Panggilan Antrian
@@ -69,17 +83,17 @@
 
                     <!-- Sound Control -->
                     <div style="position:fixed;left:12px;top:12px;z-index:2000;min-width:220px" class="text-start">
-                        <div class="small text-white-75 bg-opacity-25 p-2 rounded">
+                        <div class="small text-black-75 bg-opacity-25 p-2 rounded">
                             <div class="d-flex flex-column gap-2">
                                 <div>
                                     <button id="enableSoundBtn" class="btn btn-sm btn-light" hidden>
                                         Enable Sound
                                     </button>
                                     <button id="testSoundBtn" class="btn btn-sm ms-1">
-                                        <i class="bi bi-volume-up-fill text-white me-1" aria-hidden="true"></i>
+                                        <i class="bi bi-volume-up-fill text-black me-1" aria-hidden="true"></i>
                                     </button>
 
-                                    <span id="soundStatus" class="small text-white-50">
+                                    <span id="soundStatus" class="small text-black-50">
                                         (muted)
                                     </span>
                                 </div>
@@ -89,8 +103,8 @@
 
                     <!-- Queue Display -->
                     <div id="number" class="number">A-0</div>
-                    <div id="pasien" class="pasien">-</div>
-                    <div id="poli" class="meta small" style="margin-top:.6rem;opacity:.95">&nbsp;</div>
+                    <div id="pasien" class="pasien">&nbsp;</div>
+                    <div id="poli" class="meta" style="margin-top:.6rem;opacity:.95">&nbsp;</div>
                 </div>
             </div>
 
